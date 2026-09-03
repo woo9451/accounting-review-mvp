@@ -553,9 +553,9 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-6 px-5 py-7 lg:grid-cols-[300px_minmax(0,1fr)_360px] lg:px-8">
-        <aside className="space-y-5">
-          <div id="rules" className="scroll-mt-24 rounded-lg border bg-card p-5 shadow-sm">
+      <section id="rules" className="scroll-mt-24 border-b bg-background">
+        <div className="mx-auto grid max-w-7xl gap-5 px-5 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] lg:px-8">
+          <div className="rounded-lg border bg-card p-5 shadow-sm">
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="h-4 w-4 text-primary" />
               <p className="text-sm font-semibold">열 자동 매핑</p>
@@ -563,7 +563,7 @@ export default function Home() {
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               거래일자, 금액, 부서, 거래처, 예산, 증빙금액 열을 자동 인식합니다.
             </p>
-            <div className="mt-4 space-y-2 text-sm">
+            <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
               {["거래일자", "부서", "거래처", "금액", "예산", "증빙금액"].map((item) => (
                 <div key={item} className="flex items-center justify-between rounded-md bg-muted px-3 py-2">
                   <span>{item}</span>
@@ -575,14 +575,17 @@ export default function Home() {
 
           <div className="rounded-lg border bg-card p-5 shadow-sm">
             <p className="text-sm font-semibold">오류 유형별 검토함</p>
-            <div className="mt-4 space-y-3">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {[{ type: "전체", count: findings.length }, ...typeCounts].map((item) => (
                 <button
                   key={item.type}
                   className={`w-full rounded-md px-3 py-3 text-left text-sm transition ${
                     activeType === item.type ? "bg-primary text-primary-foreground" : "bg-muted"
                   }`}
-                  onClick={() => setActiveType(item.type)}
+                  onClick={() => {
+                    setActiveType(item.type);
+                    scrollToSection("review");
+                  }}
                 >
                   <span className="flex items-center justify-between">
                     <span>{item.type}</span>
@@ -598,9 +601,11 @@ export default function Home() {
               ))}
             </div>
           </div>
-        </aside>
+        </div>
+      </section>
 
-        <section id="review" className="scroll-mt-24 space-y-4">
+      <section id="review" className="scroll-mt-24 border-b bg-[oklch(0.988_0.007_95)]">
+        <div className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
           <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm md:flex-row md:items-center">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -670,11 +675,13 @@ export default function Home() {
               ))}
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <aside id="history" className="scroll-mt-24 space-y-5">
+      <section id="history" className="scroll-mt-24 bg-background">
+        <div className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
           {selected ? (
-            <>
+            <div className="grid gap-5 lg:grid-cols-[1fr_1.15fr_1fr]">
               <div className="rounded-lg border bg-card p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -709,13 +716,13 @@ export default function Home() {
                   {selected.transaction.answer && <p className="rounded-md bg-muted p-3">답변 · {selected.transaction.answer}</p>}
                 </div>
               </div>
-            </>
+            </div>
           ) : (
             <div className="rounded-lg border bg-card p-8 text-center text-sm text-muted-foreground">
               검토할 오류가 없습니다.
             </div>
           )}
-        </aside>
+        </div>
       </section>
     </main>
   );
