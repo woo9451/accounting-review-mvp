@@ -10,6 +10,7 @@ import {
   FileSpreadsheet,
   History,
   MessageSquareText,
+  PlusCircle,
   Search,
   ShieldAlert,
   SlidersHorizontal,
@@ -42,6 +43,23 @@ type Finding = {
   severity: number;
   reason: string;
   request: string;
+};
+
+type DetectionRules = {
+  highAmount: number;
+  budgetWarningRate: number;
+  evidenceTolerance: number;
+};
+
+type DraftTransaction = {
+  date: string;
+  department: string;
+  vendor: string;
+  category: string;
+  description: string;
+  amount: string;
+  budget: string;
+  evidenceAmount: string;
 };
 
 declare global {
@@ -243,7 +261,7 @@ function mapRows(rows: string[][]): Transaction[] {
   }));
 }
 
-function detectFindings(rows: Transaction[]): Finding[] {
+function detectFindings(rows: Transaction[], rules: DetectionRules): Finding[] {
   const duplicateKeys = new Map<string, number>();
   rows.forEach((row) => {
     const key = `${row.date}|${row.department}|${row.vendor}|${row.amount}`;
@@ -256,25 +274,36 @@ function detectFindings(rows: Transaction[]): Finding[] {
       const types: string[] = [];
 
       if ((duplicateKeys.get(duplicateKey) ?? 0) > 1) types.push("중복 거래");
-      if (row.budget > 0 && row.amount > row.budget) types.push("부서별 예산 초과");
-      if (row.amount >= 3_000_000) types.push("고액 지출");
+      if (row.budget > 0 && row.amount > row.budget) {
+        types.push("부서별 예산 초과");
+      } else if (row.budget > 0 && row.amount >= row.budget * (rules.budgetWarningRate / 100)) {
+        types.push("예산 소진 경고");
+      }
+      if (row.amount >= rules.highAmount) types.push("고액 지출");
       if (!Number.isFinite(row.amount) || row.amount <= 0) types.push("비정상 금액");
-      if (typeof row.evidenceAmount === "number" && row.evidenceAmount !== row.amount) {
+      if (
+        typeof row.evidenceAmount === "number" &&
+        Math.abs(row.evidenceAmount - row.amount) > rules.evidenceTolerance
+      ) {
         types.push("증빙 금액 불일치");
       }
 
       if (types.length === 0) return null;
 
-      const severity = Math.min(100, 38 + types.length * 16 + (row.amount >= 3_000_000 ? 10 : 0));
+      const severity = Math.min(100, 38 + types.length * 16 + (row.amount >= rules.highAmount ? 10 : 0));
       const reason = [
         types.includes("중복 거래") &&
           `거래일자, 금액, 부서, 거래처가 같은 거래가 ${duplicateKeys.get(duplicateKey)}건 존재합니다.`,
         types.includes("부서별 예산 초과") &&
           `${row.department}의 ${row.category} 지출이 예산보다 ${formatMoney(row.amount - row.budget)}원 높습니다.`,
-        types.includes("고액 지출") && "건별 금액이 300만 원 이상입니다.",
+        types.includes("예산 소진 경고") &&
+          `${row.department}의 ${row.category} 예산 소진율이 ${rules.budgetWarningRate}% 이상입니다.`,
+        types.includes("고액 지출") && `건별 금액이 ${formatMoney(rules.highAmount)}원 이상입니다.`,
         types.includes("비정상 금액") && "금액이 숫자가 아니거나 0원 이하입니다.",
         types.includes("증빙 금액 불일치") &&
-          `증빙 금액 ${formatMoney(row.evidenceAmount ?? 0)}원과 지출내역 ${formatMoney(row.amount)}원이 다릅니다.`,
+          `증빙 금액 ${formatMoney(row.evidenceAmount ?? 0)}원과 지출내역 ${formatMoney(row.amount)}원의 차이가 허용오차 ${formatMoney(
+            rules.evidenceTolerance,
+          )}원을 넘습니다.`,
       ]
         .filter(Boolean)
         .join(" ");
@@ -337,12 +366,28 @@ function downloadCsv(findings: Finding[]) {
 
 export default function Home() {
   const [rows, setRows] = useState<Transaction[]>(sampleRows);
+  const [rules, setRules] = useState<DetectionRules>({
+    highAmount: 3_000_000,
+    budgetWarningRate: 90,
+    evidenceTolerance: 0,
+  });
+  const [draft, setDraft] = useState<DraftTransaction>({
+    date: "2026-09-03",
+    department: "",
+    vendor: "",
+    category: "",
+    description: "",
+    amount: "",
+    budget: "",
+    evidenceAmount: "",
+  });
+  const [answerDraft, setAnswerDraft] = useState("");
   const [query, setQuery] = useState("");
   const [activeType, setActiveType] = useState("전체");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const findings = useMemo(() => detectFindings(rows), [rows]);
+  const findings = useMemo(() => detectFindings(rows, rules), [rows, rules]);
   const filteredFindings = findings.filter((finding) => {
     const haystack = [
       finding.transaction.id,
@@ -362,7 +407,7 @@ export default function Home() {
   const totalAmount = rows.reduce((sum, row) => sum + Math.max(row.amount, 0), 0);
   const overBudget = findings.filter((finding) => finding.types.includes("부서별 예산 초과")).length;
   const mismatch = findings.filter((finding) => finding.types.includes("증빙 금액 불일치")).length;
-  const typeCounts = ["중복 거래", "부서별 예산 초과", "고액 지출", "비정상 금액", "증빙 금액 불일치"].map(
+  const typeCounts = ["중복 거래", "부서별 예산 초과", "예산 소진 경고", "고액 지출", "비정상 금액", "증빙 금액 불일치"].map(
     (type) => ({ type, count: findings.filter((finding) => finding.types.includes(type)).length }),
   );
 
@@ -374,6 +419,54 @@ export default function Home() {
 
   const updateStatus = (id: string, status: ReviewStatus) => {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, status } : row)));
+  };
+
+  const addTransaction = () => {
+    const amount = parseNumber(draft.amount);
+    const budget = parseNumber(draft.budget);
+    const evidenceAmount = draft.evidenceAmount ? parseNumber(draft.evidenceAmount) : amount;
+
+    if (!draft.department.trim() || !draft.vendor.trim() || !draft.category.trim()) return;
+
+    setRows((current) => [
+      {
+        id: `MANUAL-${String(current.length + 1).padStart(3, "0")}`,
+        date: draft.date || "날짜 없음",
+        department: draft.department.trim(),
+        vendor: draft.vendor.trim(),
+        category: draft.category.trim(),
+        description: draft.description.trim() || "수동 입력 거래",
+        amount,
+        budget,
+        evidenceAmount,
+        status: "검토 후보",
+      },
+      ...current,
+    ]);
+    setDraft({
+      date: "2026-09-03",
+      department: "",
+      vendor: "",
+      category: "",
+      description: "",
+      amount: "",
+      budget: "",
+      evidenceAmount: "",
+    });
+    setActiveType("전체");
+    window.setTimeout(() => scrollToSection("review"), 0);
+  };
+
+  const saveAnswer = () => {
+    if (!selected || !answerDraft.trim()) return;
+    setRows((current) =>
+      current.map((row) =>
+        row.id === selected.transaction.id
+          ? { ...row, answer: answerDraft.trim(), status: "답변 기록" }
+          : row,
+      ),
+    );
+    setAnswerDraft("");
   };
 
   const scrollToSection = (id: string) => {
@@ -563,6 +656,41 @@ export default function Home() {
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               거래일자, 금액, 부서, 거래처, 예산, 증빙금액 열을 자동 인식합니다.
             </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <label className="space-y-2 text-sm">
+                <span className="font-medium">고액 기준</span>
+                <input
+                  className="h-10 w-full rounded-md border bg-background px-3 outline-none focus:ring-2 focus:ring-ring"
+                  inputMode="numeric"
+                  value={rules.highAmount}
+                  onChange={(event) =>
+                    setRules((current) => ({ ...current, highAmount: parseNumber(event.target.value) }))
+                  }
+                />
+              </label>
+              <label className="space-y-2 text-sm">
+                <span className="font-medium">예산 경고율</span>
+                <input
+                  className="h-10 w-full rounded-md border bg-background px-3 outline-none focus:ring-2 focus:ring-ring"
+                  inputMode="numeric"
+                  value={rules.budgetWarningRate}
+                  onChange={(event) =>
+                    setRules((current) => ({ ...current, budgetWarningRate: parseNumber(event.target.value) }))
+                  }
+                />
+              </label>
+              <label className="space-y-2 text-sm">
+                <span className="font-medium">증빙 허용오차</span>
+                <input
+                  className="h-10 w-full rounded-md border bg-background px-3 outline-none focus:ring-2 focus:ring-ring"
+                  inputMode="numeric"
+                  value={rules.evidenceTolerance}
+                  onChange={(event) =>
+                    setRules((current) => ({ ...current, evidenceTolerance: parseNumber(event.target.value) }))
+                  }
+                />
+              </label>
+            </div>
             <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
               {["거래일자", "부서", "거래처", "금액", "예산", "증빙금액"].map((item) => (
                 <div key={item} className="flex items-center justify-between rounded-md bg-muted px-3 py-2">
@@ -606,6 +734,51 @@ export default function Home() {
 
       <section id="review" className="scroll-mt-24 border-b bg-[oklch(0.988_0.007_95)]">
         <div className="mx-auto max-w-7xl px-5 py-8 lg:px-8">
+          <div className="mb-5 rounded-lg border bg-card p-5 shadow-sm">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="flex items-center gap-2 text-sm font-semibold">
+                  <PlusCircle className="h-4 w-4 text-primary" />
+                  거래 직접 추가
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">샘플 없이도 거래를 입력해 탐지 결과를 바로 확인할 수 있습니다.</p>
+              </div>
+              <button
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground"
+                onClick={addTransaction}
+                type="button"
+              >
+                <PlusCircle className="h-4 w-4" />
+                추가
+              </button>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
+              {[
+                ["date", "거래일자", "date"],
+                ["department", "부서", "text"],
+                ["vendor", "거래처", "text"],
+                ["category", "계정과목", "text"],
+                ["amount", "지출금액", "text"],
+                ["budget", "예산금액", "text"],
+                ["evidenceAmount", "증빙금액", "text"],
+                ["description", "내용", "text"],
+              ].map(([key, label, type]) => (
+                <label key={key} className="space-y-2 text-sm">
+                  <span className="font-medium">{label}</span>
+                  <input
+                    className="h-10 w-full rounded-md border bg-background px-3 outline-none focus:ring-2 focus:ring-ring"
+                    placeholder={label}
+                    type={type}
+                    value={draft[key as keyof DraftTransaction]}
+                    onChange={(event) =>
+                      setDraft((current) => ({ ...current, [key]: event.target.value }))
+                    }
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+
           <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm md:flex-row md:items-center">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -703,6 +876,25 @@ export default function Home() {
                   value={selected.request}
                   readOnly
                 />
+                <div className="mt-4 space-y-2">
+                  <label className="text-sm font-medium" htmlFor="answer">
+                    담당자 답변 입력
+                  </label>
+                  <textarea
+                    className="min-h-24 w-full resize-none rounded-md border bg-background p-3 text-sm leading-6 outline-none focus:ring-2 focus:ring-ring"
+                    id="answer"
+                    placeholder="예: 증빙 재발급 완료, 분할 결제 건으로 확인됨"
+                    value={answerDraft}
+                    onChange={(event) => setAnswerDraft(event.target.value)}
+                  />
+                  <button
+                    className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground"
+                    onClick={saveAnswer}
+                    type="button"
+                  >
+                    답변 저장
+                  </button>
+                </div>
               </div>
 
               <div className="rounded-lg border bg-card p-5 shadow-sm">
