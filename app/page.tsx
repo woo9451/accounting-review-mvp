@@ -376,6 +376,14 @@ export default function Home() {
     setRows((current) => current.map((row) => (row.id === id ? { ...row, status } : row)));
   };
 
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({
+      behavior: "smooth",
+      block: id === "summary" ? "start" : "center",
+    });
+    window.history.replaceState(null, "", `#${id}`);
+  };
+
   useEffect(() => {
     const context = document.modelContext;
     if (!context?.registerTool) return;
@@ -460,21 +468,26 @@ export default function Home() {
 
           <nav className="hidden items-center gap-1 rounded-md bg-muted p-1 text-sm font-medium text-muted-foreground md:flex">
             {[
-              ["요약", "#summary"],
-              ["탐지 규칙", "#rules"],
-              ["검토함", "#review"],
-              ["소명 이력", "#history"],
-            ].map(([label, href]) => (
-              <a key={href} className="rounded px-3 py-2 transition hover:bg-card hover:text-foreground" href={href}>
+              ["요약", "summary"],
+              ["탐지 규칙", "rules"],
+              ["검토함", "review"],
+              ["소명 이력", "history"],
+            ].map(([label, id]) => (
+              <button
+                key={id}
+                className="rounded px-3 py-2 transition hover:bg-card hover:text-foreground"
+                onClick={() => scrollToSection(id)}
+                type="button"
+              >
                 {label}
-              </a>
+              </button>
             ))}
           </nav>
           <div className="hidden w-[140px] lg:block" aria-hidden="true" />
         </div>
       </header>
 
-      <section id="summary" className="border-b bg-[linear-gradient(135deg,#f8faf7_0%,#eef6f4_50%,#fff8e8_100%)]">
+      <section id="summary" className="scroll-mt-20 border-b bg-[linear-gradient(135deg,#f8faf7_0%,#eef6f4_50%,#fff8e8_100%)]">
         <div className="mx-auto grid max-w-7xl gap-8 px-5 py-10 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
           <div className="flex flex-col justify-center">
             <p className="inline-flex w-fit items-center gap-2 rounded-md border bg-card px-3 py-1 text-sm font-medium text-muted-foreground shadow-sm">
@@ -542,7 +555,7 @@ export default function Home() {
 
       <section className="mx-auto grid max-w-7xl gap-6 px-5 py-7 lg:grid-cols-[300px_minmax(0,1fr)_360px] lg:px-8">
         <aside className="space-y-5">
-          <div id="rules" className="rounded-lg border bg-card p-5 shadow-sm">
+          <div id="rules" className="scroll-mt-24 rounded-lg border bg-card p-5 shadow-sm">
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="h-4 w-4 text-primary" />
               <p className="text-sm font-semibold">열 자동 매핑</p>
@@ -587,7 +600,7 @@ export default function Home() {
           </div>
         </aside>
 
-        <section id="review" className="space-y-4">
+        <section id="review" className="scroll-mt-24 space-y-4">
           <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm md:flex-row md:items-center">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -659,7 +672,7 @@ export default function Home() {
           </div>
         </section>
 
-        <aside id="history" className="space-y-5">
+        <aside id="history" className="scroll-mt-24 space-y-5">
           {selected ? (
             <>
               <div className="rounded-lg border bg-card p-5 shadow-sm">
