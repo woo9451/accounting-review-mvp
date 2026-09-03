@@ -447,7 +447,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <header className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 lg:px-8">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 lg:px-8">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <ShieldAlert className="h-5 w-5" />
@@ -470,14 +470,7 @@ export default function Home() {
               </a>
             ))}
           </nav>
-
-          <button
-            className="inline-flex h-10 items-center gap-2 rounded-md border bg-card px-4 text-sm font-medium shadow-sm"
-            onClick={() => downloadCsv(filteredFindings)}
-          >
-            <ArrowDownToLine className="h-4 w-4" />
-            다운로드
-          </button>
+          <div className="hidden w-[140px] lg:block" aria-hidden="true" />
         </div>
       </header>
 
