@@ -3,13 +3,16 @@
 import {
   AlertTriangle,
   ArrowDownToLine,
+  BarChart3,
   CheckCircle2,
   ClipboardCheck,
+  Database,
   FileSpreadsheet,
   History,
   MessageSquareText,
   Search,
   ShieldAlert,
+  SlidersHorizontal,
   Upload,
   XCircle,
 } from "lucide-react";
@@ -443,14 +446,55 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <section className="border-b bg-card">
-        <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 py-6 lg:px-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">회계 이상데이터 검토 MVP</p>
-              <h1 className="mt-1 text-3xl font-semibold tracking-tight">예산 초과와 증빙 오류를 한 번에 선별</h1>
+      <header className="sticky top-0 z-20 border-b bg-card/95 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 lg:px-8">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
+              <ShieldAlert className="h-5 w-5" />
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div>
+              <p className="text-sm font-semibold leading-none">AuditFlow</p>
+              <p className="mt-1 text-xs text-muted-foreground">Accounting Review MVP</p>
+            </div>
+          </div>
+
+          <nav className="hidden items-center gap-1 rounded-md bg-muted p-1 text-sm font-medium text-muted-foreground md:flex">
+            {[
+              ["요약", "#summary"],
+              ["탐지 규칙", "#rules"],
+              ["검토함", "#review"],
+              ["소명 이력", "#history"],
+            ].map(([label, href]) => (
+              <a key={href} className="rounded px-3 py-2 transition hover:bg-card hover:text-foreground" href={href}>
+                {label}
+              </a>
+            ))}
+          </nav>
+
+          <button
+            className="inline-flex h-10 items-center gap-2 rounded-md border bg-card px-4 text-sm font-medium shadow-sm"
+            onClick={() => downloadCsv(filteredFindings)}
+          >
+            <ArrowDownToLine className="h-4 w-4" />
+            다운로드
+          </button>
+        </div>
+      </header>
+
+      <section id="summary" className="border-b bg-[linear-gradient(135deg,#f8faf7_0%,#eef6f4_50%,#fff8e8_100%)]">
+        <div className="mx-auto grid max-w-7xl gap-8 px-5 py-10 lg:grid-cols-[minmax(0,1fr)_420px] lg:px-8">
+          <div className="flex flex-col justify-center">
+            <p className="inline-flex w-fit items-center gap-2 rounded-md border bg-card px-3 py-1 text-sm font-medium text-muted-foreground shadow-sm">
+              <BarChart3 className="h-4 w-4 text-primary" />
+              회계 이상데이터 검토 MVP
+            </p>
+            <h1 className="mt-5 max-w-3xl text-4xl font-semibold tracking-tight text-foreground lg:text-5xl">
+              예산 초과와 증빙 오류를 보기 좋은 검토함으로 정리합니다
+            </h1>
+            <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
+              엑셀을 업로드하면 중복 거래, 고액 지출, 예산 초과, 비정상 금액, 증빙 금액 불일치를 자동으로 선별하고 소명 문안까지 준비합니다.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
               <input
                 ref={fileRef}
                 className="hidden"
@@ -459,14 +503,14 @@ export default function Home() {
                 onChange={(event) => handleUpload(event.target.files?.[0])}
               />
               <button
-                className="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
+                className="inline-flex h-11 items-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm"
                 onClick={() => fileRef.current?.click()}
               >
                 <Upload className="h-4 w-4" />
                 엑셀/CSV 업로드
               </button>
               <button
-                className="inline-flex h-10 items-center gap-2 rounded-md border bg-card px-4 text-sm font-medium"
+                className="inline-flex h-11 items-center gap-2 rounded-md border bg-card px-5 text-sm font-semibold shadow-sm"
                 onClick={() => downloadCsv(filteredFindings)}
               >
                 <ArrowDownToLine className="h-4 w-4" />
@@ -475,14 +519,22 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className="rounded-lg border bg-card p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold">오늘의 검토 현황</p>
+                <p className="mt-1 text-xs text-muted-foreground">샘플 데이터 기준 실시간 집계</p>
+              </div>
+              <Database className="h-5 w-5 text-primary" />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
             {[
               ["검토 대상", `${rows.length}건`, FileSpreadsheet],
               ["탐지 오류", `${findings.length}건`, ShieldAlert],
               ["예산 초과", `${overBudget}건`, AlertTriangle],
               ["증빙 불일치", `${mismatch}건`, ClipboardCheck],
             ].map(([label, value, Icon]) => (
-              <div key={label as string} className="rounded-lg border bg-background p-4">
+              <div key={label as string} className="rounded-md border bg-background p-4">
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span className="text-sm">{label as string}</span>
                   <Icon className="h-4 w-4" />
@@ -490,14 +542,18 @@ export default function Home() {
                 <p className="mt-3 text-2xl font-semibold">{value as string}</p>
               </div>
             ))}
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-5 px-5 py-5 lg:grid-cols-[280px_minmax(0,1fr)_360px] lg:px-8">
+      <section className="mx-auto grid max-w-7xl gap-6 px-5 py-7 lg:grid-cols-[300px_minmax(0,1fr)_360px] lg:px-8">
         <aside className="space-y-5">
-          <div className="rounded-lg border bg-card p-4">
-            <p className="text-sm font-semibold">열 자동 매핑</p>
+          <div id="rules" className="rounded-lg border bg-card p-5 shadow-sm">
+            <div className="flex items-center gap-2">
+              <SlidersHorizontal className="h-4 w-4 text-primary" />
+              <p className="text-sm font-semibold">열 자동 매핑</p>
+            </div>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
               거래일자, 금액, 부서, 거래처, 예산, 증빙금액 열을 자동 인식합니다.
             </p>
@@ -511,27 +567,35 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="rounded-lg border bg-card p-4">
+          <div className="rounded-lg border bg-card p-5 shadow-sm">
             <p className="text-sm font-semibold">오류 유형별 검토함</p>
-            <div className="mt-3 space-y-2">
+            <div className="mt-4 space-y-3">
               {[{ type: "전체", count: findings.length }, ...typeCounts].map((item) => (
                 <button
                   key={item.type}
-                  className={`flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
+                  className={`w-full rounded-md px-3 py-3 text-left text-sm transition ${
                     activeType === item.type ? "bg-primary text-primary-foreground" : "bg-muted"
                   }`}
                   onClick={() => setActiveType(item.type)}
                 >
-                  <span>{item.type}</span>
-                  <span>{item.count}</span>
+                  <span className="flex items-center justify-between">
+                    <span>{item.type}</span>
+                    <span>{item.count}</span>
+                  </span>
+                  <span className={`mt-2 block h-1.5 rounded-full ${activeType === item.type ? "bg-white/35" : "bg-card"}`}>
+                    <span
+                      className={`block h-1.5 rounded-full ${activeType === item.type ? "bg-white" : "bg-primary"}`}
+                      style={{ width: `${findings.length ? Math.max(8, (item.count / findings.length) * 100) : 0}%` }}
+                    />
+                  </span>
                 </button>
               ))}
             </div>
           </div>
         </aside>
 
-        <section className="space-y-4">
-          <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 md:flex-row md:items-center">
+        <section id="review" className="space-y-4">
+          <div className="flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm md:flex-row md:items-center">
             <div className="relative flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -546,7 +610,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-lg border bg-card">
+          <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
             <div className="grid grid-cols-[1.1fr_.9fr_.9fr_.8fr_.8fr] border-b bg-muted px-4 py-3 text-xs font-semibold text-muted-foreground max-md:hidden">
               <span>거래</span>
               <span>유형</span>
@@ -602,10 +666,10 @@ export default function Home() {
           </div>
         </section>
 
-        <aside className="space-y-5">
+        <aside id="history" className="space-y-5">
           {selected ? (
             <>
-              <div className="rounded-lg border bg-card p-5">
+              <div className="rounded-lg border bg-card p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold">탐지 이유 설명</p>
@@ -616,7 +680,7 @@ export default function Home() {
                 <p className="mt-4 text-sm leading-6 text-muted-foreground">{selected.reason}</p>
               </div>
 
-              <div className="rounded-lg border bg-card p-5">
+              <div className="rounded-lg border bg-card p-5 shadow-sm">
                 <div className="flex items-center gap-2">
                   <MessageSquareText className="h-4 w-4" />
                   <p className="text-sm font-semibold">소명 요청 자동 문안</p>
@@ -628,7 +692,7 @@ export default function Home() {
                 />
               </div>
 
-              <div className="rounded-lg border bg-card p-5">
+              <div className="rounded-lg border bg-card p-5 shadow-sm">
                 <div className="flex items-center gap-2">
                   <History className="h-4 w-4" />
                   <p className="text-sm font-semibold">처리 이력</p>
